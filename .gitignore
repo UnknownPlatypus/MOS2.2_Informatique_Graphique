@@ -1,0 +1,11 @@
+# Vscode setup
+.vscode
+
+# Ignore cours
+ELCa11*
+
+# Ignore images
+Images/image*
+
+# Builds
+*.exe
