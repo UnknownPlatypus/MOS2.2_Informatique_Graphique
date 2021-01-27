@@ -6,6 +6,7 @@ ELCa11*
 
 # Ignore images
 Images/image*
+*.png
 
 # Builds
 *.exe
