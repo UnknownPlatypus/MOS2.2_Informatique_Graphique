@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <math.h>
 #include <random>
+
+#include <ctime>
+#include <regex>
 static std::default_random_engine engine; // random seed=10
 static std::uniform_real_distribution<double> uniform(1.,0);
 
@@ -38,6 +41,9 @@ float integral (float (*f)(float), float xmin, float xmax, float ymin, float yma
 }
 
 int main(){
-  std::cout<< "RESULT: " <<std::endl;
-  integral(f,-M_PI/2,M_PI/2,0,1);
+  std::time_t result = std::time(nullptr);
+  std::string date = std::ctime(&result);
+  date = std::regex_replace(date.substr(4,12),std::regex{ " " },std::string("_"));
+  std::cout << date;
+  
 }

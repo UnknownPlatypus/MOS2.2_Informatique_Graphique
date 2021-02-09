@@ -20,11 +20,11 @@ Enseignant : [Nicolas Bonnel](https://perso.liris.cnrs.fr/nicolas.bonneel/teachi
 ## Utilisation
 
 * Executer test.cpp avec openMP (Plus rapide, utilisation de tout les coeurs logiques de votre processeurs)
-```
+```sh
 g++ -fopenmp test.cpp -o test
 ```
 
 * Executer test.cpp sans openMP 
-```
+```sh
 g++ test.cpp -o test
 ```

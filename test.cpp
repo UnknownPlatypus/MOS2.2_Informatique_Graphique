@@ -2,6 +2,9 @@
 #include <vector>
 #include <algorithm>
 
+#include <ctime>
+#include <regex>
+
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
  
@@ -11,6 +14,10 @@
 #include <random>
 static std::default_random_engine engine(10); // random seed=10
 static std::uniform_real_distribution<double> uniform(1.,0);
+
+//////////////// Github pour le rendu /////////////////////////
+// Image des différents trucs qui marchent avec explications
+// Section feedback sur le cours à la fin du rapport
 
 class Vector{
     public:
@@ -22,7 +29,7 @@ class Vector{
         double operator[](int i) const {return coords[i];};
         double &operator[](int i) {return coords[i];};
         double sqrNorm() const {
-            return( coords[0] * coords[0]+ coords[1] * coords[1]+ coords[2] * coords[2] );
+            return(coords[0]*coords[0] + coords[1]*coords[1] + coords[2]*coords[2]);
         };
         const Vector& operator+=(const Vector& a){
             coords[0] += a[0];
@@ -38,24 +45,25 @@ class Vector{
     private:
         double coords [3];
 };
+
 // Surcharges d'Opérateur 
 Vector operator+ (const Vector &a, const Vector &b){
-    return(Vector(a[0]+b[0],a[1]+b[1],a[2]+b[2]));
+    return(Vector(a[0] + b[0], a[1] + b[1], a[2] + b[2]));
 };
 Vector operator- (const Vector &a, const Vector &b){
-    return(Vector(a[0]-b[0],a[1]-b[1],a[2]-b[2]));
+    return(Vector(a[0] - b[0], a[1] - b[1], a[2] - b[2]));
 };
 Vector operator- (const Vector &a){
-    return(Vector(-a[0],-a[1],-a[2]));
+    return(Vector(-a[0], -a[1], -a[2]));
 };
 Vector operator* (const double &a, const Vector &b){
-    return(Vector(a*b[0],a*b[1],a*b[2]));
+    return(Vector(a * b[0], a * b[1], a * b[2]));
 };
 Vector operator* (const Vector &a, const double &b){
-    return(Vector(a[0]*b,a[1]*b,a[2]*b));
+    return(Vector(a[0] * b, a[1] * b, a[2] * b));
 };
 Vector operator/ (const Vector &a, const double &b){
-    return(Vector(a[0]/b,a[1]/b,a[2]/b));
+    return(Vector(a[0] / b, a[1] / b, a[2] / b));
 };
 Vector cross(const Vector &a, const Vector &b){ // Mat product
     return Vector(
@@ -65,13 +73,13 @@ Vector cross(const Vector &a, const Vector &b){ // Mat product
     );
 };
 Vector operator* (const Vector &a, const Vector &b){ // term-to-term multiplication
-    return(Vector(a[0]*b[0],a[1]*b[1],a[2]*b[2]));
+    return(Vector(a[0] * b[0], a[1] * b[1], a[2] * b[2]));
 };
 
 double dot(const Vector &a, const Vector &b){ // Scalar product
-    return(a[0]*b[0]+a[1]*b[1]+a[2]*b[2]);
+    return(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]);
 };
-double sqr(double x){ // Compute square
+double sqr(double x){ // Square
     return x*x;
 }
 
@@ -79,8 +87,8 @@ Vector random_cos(const Vector &N){
     double u1 = uniform(engine);
     double u2 = uniform(engine);
 
-    double x = cos(2 * M_PI*u1) * sqrt(1 - u2);
-    double y = sin(2 * M_PI*u1) * sqrt(1 - u2);
+    double x = cos(2 * M_PI * u1) * sqrt(1 - u2);
+    double y = sin(2 * M_PI * u1) * sqrt(1 - u2);
     double z = sqrt(u2);
     Vector T1;
 
@@ -101,9 +109,7 @@ Vector random_cos(const Vector &N){
     Vector T2 = cross(N,T1);
     return (x*T1 + y*T2 + z*N);
 }
-//////////////// Github pour le rendu /////////////////////////
-// Image des différents trucs qui marchent avec explications
-// Section feedback sur le cours à la fin du rapport
+
 class Ray{
     public:
         Ray(const Vector& C, const Vector&u) : C(C), u(u) {}
@@ -119,16 +125,16 @@ public:
         // Solves the intersection equation
         double a = 1;
         double b = 2 * dot(r.u, r.C - O);
-        double c = (r.C-O).sqrNorm() - R*R;
+        double c = (r.C - O).sqrNorm() - R * R;
 
-        double delta = b*b - 4*a*c;
+        double delta = b * b - 4 * a * c;
         if (delta < 0) {
             t = 1E10;
             return false;
         }
         else{
-            double sqrtD(sqrt(delta));
-            double t2 = (-b + sqrtD) / (2*a);
+            double sqrtD = sqrt(delta);
+            double t2 = (-b + sqrtD) / (2 * a);
 
             if(t2 < 0)return false;
 
@@ -155,13 +161,14 @@ public:
 class Scene{
 public:
     Scene(){};
-    bool intersect(const Ray& r, Vector& P, Vector& N, Vector &albedo, bool &mirror, bool &transp, double &t){
-        t = 1E10;
-        bool is_inter = false;
+    bool intersect(const Ray& r, Vector& P, Vector& N, Vector &albedo, bool &mirror, bool &transp, double &t, int& objectid){
+        t = 1E10; // Infini
+        bool is_inter = false; // Init
 
         for(int i=0; i < objects.size(); i++){
             Vector loc_P, loc_N;
             double loc_T;
+
             if(objects[i].intersect(r, loc_P, loc_N, loc_T) && loc_T < t){
                 t = loc_T;
                 is_inter = true;
@@ -170,84 +177,125 @@ public:
                 N = loc_N;
                 mirror = objects[i].isMirror;
                 transp = objects[i].isTransparent;
+                objectid = 1;
             };
         };
         return is_inter;
     };
 
-    Vector getColor(const Ray& r, int rebond){
-        Vector P, N, albedo;
-        double t;
-        bool mirror, transp;
+    Vector getColor(const Ray& r, int rebond, bool lastdefuse){
 
-        bool inter = intersect(r, P, N, albedo, mirror, transp, t); 
-
-        Vector p_color(0,0,0); 
-
+        double epsi = 0.00001; // Deal with intersection issues
         if(rebond >5){
             return Vector(0.,0.,0.);
         }
+        // Initialize
+        Vector P, N, albedo;
+        double t;
+        bool mirror, transp;
+        int objectid;
+        bool inter = intersect(r, P, N, albedo, mirror, transp, t, objectid); 
+        Vector p_color(0,0,0); 
+        
         if(inter){ 
-            if (mirror){ // Miroir
-                Vector reflectedDir = r.u - 2* dot(r.u, N)*N; // Reflected Ray Direction
-                Ray reflectedRay(P + 0.001*N, reflectedDir);
-
-                return getColor(reflectedRay, rebond + 1);
-            }
-            else{
-                if (transp){ // Transp
-                    // Refractive index (n1,n2) & Normal Vector (N2)
-                    double n1 = 1, n2 = 1.4;  
-                    Vector N2 = N;
-
-                    if(dot(r.u,N) > 0){ // Leaving sphere, change normal vector and swap refractive indexes
-                        std::swap(n1, n2);
-                        N2 = -N;
-                    };
-                                   
-                    // Tangential (Tt) & normal (Tn) vector, incidence index (rad)
-                    Vector Tt = n1/n2 * (r.u - dot(r.u, N2)*N2);
-                    double rad = 1 - sqr(n1/n2) * (1 - sqr(dot(r.u,N2))); 
-
-                    if(rad < 0){ // No transmission, TOTAL REFLECTION
-                        Vector reflectedDir = r.u - 2* dot(r.u, N)*N;
-                        Ray reflectedRay(P + 0.0001*N, reflectedDir);
-                        return getColor(reflectedRay, rebond + 1);
-                    }
-
-                    Vector Tn = -sqrt(rad)*N2; // /!\ Signe
-                    Vector refraDir = Tt + Tn;
-                    Ray refraRay(P - 0.0001*N2, refraDir);
-                    return getColor(refraRay, rebond + 1); // Enlever +1
+            if(objectid == 0){
+                if (rebond == 0 || !lastdefuse) {
+                    return Vector(I,I,I) / (4 * M_PI * M_PI * objects[0].R * objects[0].R);
                 }
                 else{
-                    // Eclairage direct
-                    Vector PL = (L - P);
-                    double norm = sqrt(PL.sqrNorm()); 
-                    
-                    // Shadow
-                    Vector shadowP, shadowN, shadowAlbedo;
-                    double shadowt;
-                    bool shadowMirror, shadowTransp;
+                    return Vector(0, 0, 0);
+                }
+            }
 
-                    Ray shadowRay(P + 0.0001 * N, PL/norm);
-                    
-                    bool shadowInter = intersect(shadowRay, shadowP, shadowN, shadowAlbedo, shadowMirror, shadowTransp, shadowt);
+            else{            
+                if (mirror){ // Mirror effect
+                    Vector reflectedDir = r.u - 2 * dot(r.u, N) * N; // Reflected Ray Direction
+                    Ray reflectedRay(P + epsi * N, reflectedDir);
 
-                    if(shadowInter && shadowt < norm){
-                        p_color = Vector(0.,0.,0.);
-                    } 
-                    else{
-                        p_color =  I / (4 * M_PI * norm*norm) * albedo/M_PI * std::max(0., dot(N, PL/norm));
+                    return getColor(reflectedRay, rebond + 1, false);
+                }
+                else{
+                    if (transp){ // Transparent effect
+                        // Refractive index (n1,n2) & Normal Vector (N2)
+                        double n1 = 1, n2 = 1.4;  //n2 ~= 1.4 for glass
+                        Vector N2 = N;
+
+                        if(dot(r.u, N) > 0){ // Leaving sphere, invert normal vector and swap refractive indexes
+                            std::swap(n1, n2);
+                            N2 = -N;
+                        };
+                                    
+                        // Tangential (Tt) & Normal (Tn) vectors, incidence index (rad)
+                        Vector Tt = n1/n2 * (r.u - dot(r.u, N2) * N2);
+                        double rad = 1 - sqr(n1 / n2) * (1 - sqr(dot(r.u,N2))); 
+
+                        if(rad < 0){ // TOTAL REFLECTION (No transmission)
+                            Vector reflectedDir = r.u - 2 * dot(r.u, N) * N;
+                            Ray reflectedRay(P + epsi * N, reflectedDir);
+                            return getColor(reflectedRay, rebond + 1, false);
+                        }
+
+                        Vector Tn = -sqrt(rad) * N2; // /!\ Signe
+                        Vector refraDir = Tt + Tn;
+                        Ray refraRay(P - epsi*N2, refraDir);
+                        return getColor(refraRay, rebond, false); // Enlever +1 dans rebond ?
                     }
+                    else{
+                        // Vector PL = (L - P);
+                        // double norm = sqrt(PL.sqrNorm()); 
+                        
+                        // // Shadow
+                        // Vector shadowP, shadowN, shadowAlbedo;
+                        // double shadowt;
+                        // bool shadowMirror, shadowTransp;
+                        // int shadowid;
 
-                    // Eclairage indirect
-                    Vector wi = random_cos(N); // Reflected Ray Direction
-                    Ray wiRay(P + 0.0001*N, wi);
-                    p_color += albedo*getColor(wiRay, rebond + 1);
+                        // Ray shadowRay(P + 0.0001 * N, PL/norm);
+                        
+                        // bool shadowInter = intersect(shadowRay, shadowP, shadowN, shadowAlbedo, shadowMirror, shadowTransp, shadowt, shadowid);
 
-                }     
-            }  
+                        // if(shadowInter && shadowt < norm){
+                        //     p_color = Vector(0.,0.,0.);
+                        // } 
+                        // else{
+                        //     p_color =  I / (4 * M_PI * norm*norm) * albedo/M_PI * std::max(0., dot(N, PL/norm));
+                        // }
+
+                        // Eclairage direct
+                        Vector PL = (L - P);
+                        PL = PL.get_normalized();
+                        Vector w = random_cos(-PL);
+                        Vector xprim = w * objects[0].R + objects[0].O;
+                        Vector Pxprime = xprim - P;
+                        double d = sqrt(Pxprime.sqrNorm());
+                        Pxprime = Pxprime/d;
+
+                        Vector shadowP, shadowN, shadowAlbedo;
+                        double shadowt;
+                        bool shadowMirror, shadowTransp;
+                        int shadowid;
+
+                        Ray shadowRay(P + epsi * N, Pxprime);
+                        
+                        bool shadowInter = intersect(shadowRay, shadowP, shadowN, shadowAlbedo, shadowMirror, shadowTransp, shadowt, shadowid);
+
+                        if(shadowInter && shadowt < d - 3*epsi){ // Might change to 3-4*epsi
+                            p_color = Vector(0.,0.,0.);
+                        } 
+                        else{
+                            double proba = std::max(0.,dot(-PL,w)) / (M_PI * objects[0].R * objects[0].R);
+                            double J = std::max(0.,dot(w, -Pxprime) / (d*d));
+                            p_color =  I / (4 * M_PI * objects[0].R*objects[0].R) * albedo / M_PI * std::max(0., dot(N, Pxprime)) * J / proba; 
+                        }
+
+                        // Eclairage indirect
+                        Vector dir_ir = random_cos(N); // Reflected Ray Direction
+                        Ray irRay(P + epsi * N, dir_ir.get_normalized()); // normalize ?
+                        p_color += albedo / M_PI * getColor(irRay, rebond + 1, true); //  /M_PI ?
+
+                    }     
+                }  
+            }
         }
         return p_color;
     };
@@ -258,26 +306,37 @@ public:
 };
 
 int main() {
-    // Define image size
+    // Define image size & nb of Rays
     int W = 512;
     int H = 512;
-    
+    int nb_rays = 100;
+
     // Create Scene and light. Setup camera position
     Vector C(0,0,55);
     Scene scene;
     scene.I = 5E9;
-    scene.L = Vector(-10,20,40);
+    scene.L = Vector(-10, 20, 40);
+    double angle = 60;
+    double alpha = angle * M_PI / 180;
 
     // Add elemnts to the scene (Walls approximated with spheres)
-    Sphere S(Vector(0,0,0),10,Vector(1,1.,1.),false,true); // White
-    Sphere SmurBot(Vector(0, -1000, 0),990,Vector(1, 1., 1.)); // White
-    Sphere SmurTop(Vector(0, 1000, 0),940,Vector(1, 1., 1.)); // White
-    Sphere SmurLeft(Vector(-1000, 0 ,0),940,Vector(1, 0.5, 0.5)); // Red
-    Sphere SmurRight(Vector(1000, 0, 0),940,Vector(0.5, 1., 0.5));// Green
+    Sphere Lumiere(scene.L, 5, Vector(1.,1.,1.)); // White
+    //Sphere S(Vector(0,0,0),10,Vector(1.,1.,1.),false,false); // White
+    Sphere S1(Vector(0, 0, 0), 10, Vector(1, 1, 1), false, false);// White
+    Sphere S2(Vector(-10, 0, -20), 10, Vector(1, 1, 1), false, false);// White
+    Sphere S3(Vector(10, 0, 20), 10, Vector(1, 1, 1), false, false);// White
+    Sphere SmurBot(Vector(0, -1000, 0),990,Vector(0., 0., 1.)); // Blue
+    Sphere SmurTop(Vector(0, 1000, 0),940,Vector(1., 0., 0.)); // Red
+    Sphere SmurLeft(Vector(-1000, 0 ,0),960,Vector(1., 0.5, 0.5)); // Pale Red
+    Sphere SmurRight(Vector(1000, 0, 0),960,Vector(0.5, 1., 0.5));// Green
     Sphere SmurBack(Vector(0, 0, -1000),940,Vector(0.2, 1., 1.));// Cyan
-    Sphere SmurFront(Vector(0, 0, 1000),940,Vector(1, 1., 0.5)); // Yellow
+    Sphere SmurFront(Vector(0, 0, 1000),940,Vector(1., 1., 0.5)); // Yellow
     
-    scene.objects.push_back(S);
+    scene.objects.push_back(Lumiere); 
+    //scene.objects.push_back(S);
+    scene.objects.push_back(S1);
+    scene.objects.push_back(S2);
+    scene.objects.push_back(S3);
     scene.objects.push_back(SmurLeft);
     scene.objects.push_back(SmurRight);
     scene.objects.push_back(SmurBack);
@@ -285,32 +344,48 @@ int main() {
     scene.objects.push_back(SmurTop);
     scene.objects.push_back(SmurBot);
 
-    double angle = 60;
-    double f = angle * M_PI / 180;
-    int nb_rays = 71;
+    // Depth of field
+    double capSize = 1;
+    double focale = 55;
 
-    std::vector<unsigned char> image(W*H * 3, 0);
-    #pragma omp parallel for schedule(dynamic,1) //+ regarder prise en charge openMP avec vscode ?
-    for (int i = 0; i < H; i++) {
-        for (int j = 0; j < W; j++) {
-            Vector u(j-W/2, i-H/2, -W/(2.*tan(f/2)));
-            u = u.get_normalized();
-            Ray r(C, u);
+    std::vector<unsigned char> image(W * H * 3, 0);
+    #pragma omp parallel for schedule(dynamic,1) 
+    for (int i = 0; i < H; i++) { // Height
+        for (int j = 0; j < W; j++) { // Width
 
-            // Complete here
             Vector p_color(0,0,0);
 
-            for(int k=0; k < nb_rays; k++){
-                p_color += scene.getColor(r,0);
+            for(int k=0; k < nb_rays; k++){ // Rays
+                
+                double u1 = uniform(engine);
+                double u2 = uniform(engine);
+                double dx = 0.25 * cos(2 * M_PI * u1) * sqrt(-2 * log(u2));
+                double dy = 0.25 * sin(2 * M_PI * u1) * sqrt(-2 * log(u2));
+
+                u1 = uniform(engine);
+                u2 = uniform(engine);
+                double dx2 = capSize * cos(2 * M_PI * u1) * sqrt(-2 * log(u2));
+                double dy2 = capSize * sin(2 * M_PI * u1) * sqrt(-2 * log(u2));
+
+                Vector dir(j - W/2 + dx +0.5, i - H/2 + dy + 0.5, -W / (2. * tan(alpha/2))); // Inverser dx1 et dx2 ?
+                dir = dir.get_normalized();
+
+                Vector target = C + focale * dir;
+                Vector C_prime = C + Vector(dx2, dy2, 0);
+                Vector dir_prime = (target - C_prime).get_normalized();
+
+                Ray r(C_prime,dir_prime);
+                
+                p_color += scene.getColor(r, 0, false);
             };
             p_color = p_color / nb_rays;
             // Till here
-            image[((H-i-1)*W + j) * 3 + 0] = std::min(255.,std::pow(p_color[0],0.45));
-            image[((H-i-1)*W + j) * 3 + 1] = std::min(255.,std::pow(p_color[1],0.45));
-            image[((H-i-1)*W + j) * 3 + 2] = std::min(255.,std::pow(p_color[2],0.45));
+            image[((H - i - 1) * W + j) * 3 + 0] = std::min(255., std::pow(p_color[0],0.45));
+            image[((H - i - 1) * W + j) * 3 + 1] = std::min(255., std::pow(p_color[1],0.45));
+            image[((H - i - 1) * W + j) * 3 + 2] = std::min(255., std::pow(p_color[2],0.45));
         }
     }
-    stbi_write_png("Images/image_71Ray.png", W, H, 3, &image[0], 0);
+    stbi_write_png("Images/test_Fin_090221.png", W, H, 3, &image[0], 0);
  
     return 0;
 }
