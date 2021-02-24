@@ -4,8 +4,9 @@
 #include <math.h>
 #include <random>
 
-#include <ctime>
-#include <regex>
+#include <chrono>
+#include <string.h>
+
 static std::default_random_engine engine; // random seed=10
 static std::uniform_real_distribution<double> uniform(1.,0);
 
@@ -41,9 +42,10 @@ float integral (float (*f)(float), float xmin, float xmax, float ymin, float yma
 }
 
 int main(){
-  std::time_t result = std::time(nullptr);
-  std::string date = std::ctime(&result);
-  date = std::regex_replace(date.substr(4,12),std::regex{ " " },std::string("_"));
-  std::cout << date;
-  
+  std::time_t ct = std::time(0);
+  char* cc = ctime(&ct);
+  if (cc[strlen(cc)-1] == '\n') cc[strlen(cc)-1] = '\0';
+  char* m = strcat(cc," PUTE");
+  std::cout << cc << m << std::endl;
+  return 0;  
 }

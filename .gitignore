@@ -3,12 +3,12 @@
 
 # Ignore cours
 ELCa11*
+/cours
 
 # Ignore images
-Images/image*
+Images/*
 *.png
 
 # Builds
 *.exe
 
-/cours
