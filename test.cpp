@@ -5,7 +5,7 @@
 #include <string> 
 #include <iostream>
 #include <stdio.h>
-
+#include <list>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
  
@@ -355,6 +355,12 @@ public:
 	int group;       // face group
 };
 
+class Noeud {
+public:
+        Noeud *fg, *fd;
+        Boundingbox b;
+        int start, end;
+};
 
 class TriangleMesh : public Object {
 public:
@@ -363,18 +369,65 @@ public:
         this->albedo = albedo;
         isMirror = mirror;
         transp = transp;
+        BVH = new Noeud;
     };
 
-    void buildBB(){
+    Boundingbox buildBB(int start, int end){// triangle indexes
         bool inf = 1E9;
         bb.mini = Vector(inf,inf,inf);
         bb.maxi = Vector(-inf,-inf,-inf);
-        for(int i=0; i < vertices.size(); i++){
+
+        for(int i=start; i < end; i++){
             for(int j=0; j < 3; j++){
-                bb.mini[j] = std::min(bb.mini[j], vertices[i][j]); 
-                bb.maxi[j] = std::max(bb.mini[j], vertices[i][j]);
+                bb.mini[j] = std::min(bb.mini[j], vertices[indices[i].vtxi][j]); 
+                bb.maxi[j] = std::max(bb.maxi[j], vertices[indices[i].vtxi][j]); 
+                bb.mini[j] = std::min(bb.mini[j], vertices[indices[i].vtxj][j]); 
+                bb.maxi[j] = std::max(bb.maxi[j], vertices[indices[i].vtxj][j]); 
+                bb.mini[j] = std::min(bb.mini[j], vertices[indices[i].vtxk][j]); 
+                bb.maxi[j] = std::max(bb.maxi[j], vertices[indices[i].vtxk][j]); 
             }            
         }
+    }
+
+void buildBVH(Noeud* n, int start, int end){
+       
+        n->start = start;
+        n->end = end;
+        n->b = buildBB(n->start, n->end);
+        Vector diag = n->b.maxi - n->b.mini;
+
+        int d;
+        if (diag[0]>=diag[1] && diag[0]>=diag[2]){
+            d = 0;
+        }
+        else{
+            if (diag[1]>=diag[0] && diag[1]>=diag[2]){
+                d = 1;
+            }
+            else{
+                d = 2;
+            }
+        }
+
+        double mid = (n->b.mini[d] + n->b.maxi[d]) / 2;
+        int id_pivot = n-> start;
+
+        for (int i = n->start; i < n->end; i++){
+            double mid_tri = (vertices[indices[i].vtxi][d] + vertices[indices[i].vtxj][d] + vertices[indices[i].vtxk][d]) / 3;
+            if(mid_tri < mid){
+                std::swap(indices[i], indices[id_pivot]);
+                id_pivot++;
+            }
+        }
+
+        n->fg = NULL;
+        n->fd = NULL;
+        if(id_pivot == start || id_pivot == end || (end-start < 5)) return;
+
+        n->fg = new Noeud;
+        n->fd = new Noeud;
+        buildBVH(n->fg, n->start, id_pivot);
+        buildBVH(n->fd, id_pivot,n->end);
     }
 	
 	void readOBJ(const char* obj) {
@@ -552,36 +605,58 @@ public:
 	}
 
     bool intersect(const Ray& r, Vector& P, Vector& normale, double &t){ 
-        if(!bb.intersect(r)) return false;
+        if(!BVH->b.intersect(r)) return false;
+
         t = 1E10; // double t
         bool is_inter = false;
 
-        for(int i = 0; i < indices.size(); i++){
-            const Vector &A = vertices[indices[i].vtxi]; // First vertice
-            const Vector &B = vertices[indices[i].vtxj]; // Second vertice
-            const Vector &C = vertices[indices[i].vtxk]; // Third vertice
+        std::list<Noeud*> l;
+        l.push_back(BVH);
 
-            Vector e1 = B - A;
-            Vector e2 = C - A;
-            Vector N = cross(e1,e2);
-            Vector AO = r.C - A;
-            Vector AOu = cross(AO, r.u);
-            double invUN = 1. / dot(r.u, N);
-
-            double beta = -dot(e2,AOu) * invUN;
-            double gamma = dot(e1,AOu) * invUN;
-            double alpha = 1 - beta - gamma;
-            double localt = -dot(AO,N) * invUN;
-
-            if(beta >= 0 && gamma >= 0 && beta <=1 && gamma <= 1 && alpha >= 0 && localt > 0){ // intesection
-                is_inter = true;
-                if(localt < t){
-                    t = localt;
-                    normale = N.get_normalized();
-                    P = r.C  + r.u *t;
+        while(!l.empty()){
+            Noeud* c = l.front();
+            l.pop_front();
+            if(c->fg){
+                if(!c->fg->b.intersect(r)){
+                    l.push_front(c->fg);
+                }
+                if(!c->fd->b.intersect(r)){
+                    l.push_front(c->fd);
                 }
             }
-        }
+            else{
+                for(int i = c->start; i < c->end; i++){
+                    const Vector &A = vertices[indices[i].vtxi]; // First vertice
+                    const Vector &B = vertices[indices[i].vtxj]; // Second vertice
+                    const Vector &C = vertices[indices[i].vtxk]; // Third vertice
+
+                    Vector e1 = B - A;
+                    Vector e2 = C - A;
+                    Vector N = cross(e1,e2);
+                    Vector AO = r.C - A;
+                    Vector AOu = cross(AO, r.u);
+                    double invUN = 1. / dot(r.u, N);
+
+                    double beta = -dot(e2,AOu) * invUN;
+                    double gamma = dot(e1,AOu) * invUN;
+                    double alpha = 1 - beta - gamma;
+                    double localt = -dot(AO,N) * invUN;
+
+                    if(beta >= 0 && gamma >= 0 && beta <=1 && gamma <= 1 && alpha >= 0 && localt > 0){ // intesection
+                        is_inter = true;
+                        if(localt < t){
+                            t = localt;
+                            // normale = N.get_normalized(); // Modifier pour stocker index utile et calculer a la fin seulement
+                            normale = alpha*normals[indices[i].ni] + beta*normals[indices[i].nj] + gamma*normals[indices[i].nk];
+                            normale = normale.get_normalized();
+                            P = r.C  + r.u *t;
+                        }
+                    }
+                }
+
+            }
+            
+        }       
         return is_inter;        
     }
 
@@ -590,7 +665,9 @@ public:
 	std::vector<Vector> normals;
 	std::vector<Vector> uvs;
 	std::vector<Vector> vertexcolors;
-    Boundingbox bb; // ?	
+    Boundingbox bb; 
+
+    Noeud* BVH;
 };
 
 
@@ -634,7 +711,8 @@ int main() {
     for(int i=0; i < m.normals.size(); i++){
         std::swap(m.normals[i][1], m.normals[i][2]);
     }
-    m.buildBB(); // complete ?
+    //m.buildBB(); // complete ?
+    m.buildBVH(m.BVH, 0, m.indices.size()); 
 
     scene.objects.push_back(&Lumiere); 
     //scene.objects.push_back(S);
@@ -690,7 +768,7 @@ int main() {
             image[((H - i - 1) * W + j) * 3 + 2] = std::min(255., std::pow(p_color[2],0.45));
         }
     }
-    stbi_write_png("Images/image_Mesh.png", W, H, 3, &image[0], 0);
+    stbi_write_png("Images/image_Mesh2.png", W, H, 3, &image[0], 0);
  
     return 0;
 }
