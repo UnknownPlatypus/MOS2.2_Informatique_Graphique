@@ -7,19 +7,22 @@
 #include <stdio.h>
 #include <list>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
+#include "libs/stb_image_write.h"
  
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "libs/stb_image.h"
 
 #include <random>
 static std::default_random_engine engine(10); // random seed=10
 static std::uniform_real_distribution<double> uniform(1.,0);
 
-//////////////// Github pour le rendu /////////////////////////
-// Image des différents trucs qui marchent avec explications
-// Section feedback sur le cours à la fin du rapport
+#include <time.h>
 
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////       Vector Class       //////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
 class Vector{
     public:
         explicit Vector(double x=0, double y=0, double z=0) { 
@@ -47,7 +50,8 @@ class Vector{
         double coords [3];
 };
 
-// Surcharges d'Opérateur 
+// Operator Overload
+// minus / plus 
 Vector operator+ (const Vector &a, const Vector &b){
     return(Vector(a[0] + b[0], a[1] + b[1], a[2] + b[2]));
 };
@@ -57,15 +61,24 @@ Vector operator- (const Vector &a, const Vector &b){
 Vector operator- (const Vector &a){
     return(Vector(-a[0], -a[1], -a[2]));
 };
+
+// multiplication
 Vector operator* (const double &a, const Vector &b){
     return(Vector(a * b[0], a * b[1], a * b[2]));
 };
 Vector operator* (const Vector &a, const double &b){
     return(Vector(a[0] * b, a[1] * b, a[2] * b));
 };
+Vector operator* (const Vector &a, const Vector &b){ // term-to-term multiplication
+    return(Vector(a[0] * b[0], a[1] * b[1], a[2] * b[2]));
+};
+
+// Division
 Vector operator/ (const Vector &a, const double &b){
     return(Vector(a[0] / b, a[1] / b, a[2] / b));
 };
+
+// Advanced operations
 Vector cross(const Vector &a, const Vector &b){ // Mat product
     return Vector(
         a[1] * b[2] - a[2] * b[1],
@@ -73,10 +86,6 @@ Vector cross(const Vector &a, const Vector &b){ // Mat product
         a[0] * b[1] - a[1] * b[0]
     );
 };
-Vector operator* (const Vector &a, const Vector &b){ // term-to-term multiplication
-    return(Vector(a[0] * b[0], a[1] * b[1], a[2] * b[2]));
-};
-
 double dot(const Vector &a, const Vector &b){ // Scalar product
     return(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]);
 };
@@ -84,32 +93,40 @@ double sqr(double x){ // Square
     return x*x;
 }
 
+// Returns a vector with a random direction slightly shifted from Vector N direction
 Vector random_cos(const Vector &N){
     double u1 = uniform(engine);
     double u2 = uniform(engine);
-
     double x = cos(2 * M_PI * u1) * sqrt(1 - u2);
     double y = sin(2 * M_PI * u1) * sqrt(1 - u2);
     double z = sqrt(u2);
+
     Vector T1;
 
-    if(N[0] < N[1] && N[0] < N[2]){ // Composante sur x est la plus petite
-        T1 = Vector(0,N[2], -N[1]);
+    if(N[0] < N[1] && N[0] < N[2]){ // X component is the smallest
+        T1 = Vector(0, N[2], -N[1]);
     }
     else{
-        if(N[1] < N[0] && N[1] < N[2]){ // Composante sur y est la plus petite
-            T1 = Vector(N[2],0,-N[0]);
+        if(N[1] < N[0] && N[1] < N[2]){ // Y component is the smallest
+            T1 = Vector(N[2], 0, -N[0]);
         }
-        else{ // Composante sur z est la plus petite
+        else{ // Z component is the smallest
             T1 = Vector(N[1], -N[0],0);
         }
-        
-
     }
+
     T1 = T1.get_normalized();
     Vector T2 = cross(N,T1);
+
     return (x*T1 + y*T2 + z*N);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////        Ray Class         //////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+
 
 class Ray{
 public:
@@ -117,13 +134,28 @@ public:
         Vector C, u;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////       Object Class       //////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+
 class Object{
 public:
     Object(){};
-    virtual bool intersect(const Ray& r, Vector& P, Vector& normale, double &t) = 0;
+    virtual bool intersect(const Ray& r, Vector& P, Vector& normale, double &t, Vector &color) = 0;
+
     Vector albedo;
     bool isMirror, isTransparent;    
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////       Sphere Class       //////////////////////////////////
+//////////////////////////////     (Object inherit)     //////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+
 
 class Sphere : public Object {
 public:
@@ -132,7 +164,7 @@ public:
         this->isMirror = isMirror;
         this->isTransparent = isTransparent;
     }
-    bool intersect(const Ray& r, Vector& P, Vector& N, double &t){ 
+    bool intersect(const Ray& r, Vector& P, Vector& N, double &t, Vector &color){ 
         // Solves the intersection equation
         double a = 1;
         double b = 2 * dot(r.u, r.C - O);
@@ -160,13 +192,23 @@ public:
 
             P = r.C + (r.u * t);
             N = (P - O).get_normalized();
+
+            color = this ->albedo; 
             return true;
         };
     }
+
     Vector O;
     double R;  
  
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////    Bounding Box Class    //////////////////////////////////
+//////////////////////////////       Noeud Class        //////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
 
 class Boundingbox{
 public:
@@ -191,26 +233,46 @@ public:
 
         if (tMax <0) return false;
         return tMax > tMin;
+
     }
     Vector mini, maxi;
 };
 
+class Noeud {
+public:
+        Noeud *fg, *fd;
+        Boundingbox b;
+        int start, end;
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////       Scene Class        //////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
 
 class Scene{
 public:
     Scene(){};
+    
     bool intersect(const Ray& r, Vector& P, Vector& N, Vector &albedo, bool &mirror, bool &transp, double &t, int& objectid){
+        /*
+            Returns True if there is an intersection between a Ray and one of the scene objects.
+            (Only if the intersection point is closer from start than last intersection point found)
+            Function entries are updated in the process.
+        */
+
         t = 1E10; // Infini
         bool is_inter = false; // Init
 
         for(int i=0; i < objects.size(); i++){
-            Vector loc_P, loc_N;
+            Vector loc_P, loc_N, loc_A;
             double loc_T;
 
-            if(objects[i]->intersect(r, loc_P, loc_N, loc_T) && loc_T < t){
+            if(objects[i]->intersect(r, loc_P, loc_N, loc_T, loc_A) && loc_T < t){
                 t = loc_T;
                 is_inter = true;
-                albedo = objects[i]->albedo;
+                albedo = loc_A;
                 P = loc_P;
                 N = loc_N;
                 mirror = objects[i]->isMirror;
@@ -223,11 +285,13 @@ public:
 
     Vector getColor(const Ray& r, int rebond, bool lastdefuse){
 
-        double epsi = 0.00001; // Deal with intersection issues
-        if(rebond >5){
+        double epsi = 0.00001; // Deal with intersection uncertainties issues
+
+        if(rebond >5){ // Recursion limit
             return Vector(0.,0.,0.);
         }
-        // Initialize
+
+        // Init
         Vector P, N, albedo;
         double t;
         bool mirror, transp;
@@ -236,9 +300,9 @@ public:
         Vector p_color(0,0,0); 
         
         if(inter){ 
-            if(objectid == 0){
+            if(objectid == 0){ // Light Source
                 if (rebond == 0 || !lastdefuse) {
-                    return Vector(I,I,I) / (4 * M_PI * M_PI * dynamic_cast<Sphere*>(objects[0])->R * dynamic_cast<Sphere*>(objects[0])->R);
+                    return Vector(I, I, I) / (4 * M_PI * M_PI * sqr(dynamic_cast<Sphere*>(objects[0])->R));
                 }
                 else{
                     return Vector(0, 0, 0);
@@ -252,8 +316,10 @@ public:
 
                     return getColor(reflectedRay, rebond + 1, false);
                 }
+
                 else{
-                    if (transp){ // Transparent effect
+                    if (transp){ // Transparency effect
+                    
                         // Refractive index (n1,n2) & Normal Vector (N2)
                         double n1 = 1, n2 = 1.4;  //n2 ~= 1.4 for glass
                         Vector N2 = N;
@@ -274,11 +340,13 @@ public:
                         }
 
                         Vector Tn = -sqrt(rad) * N2; // /!\ Signe
+
                         Vector refraDir = Tt + Tn;
-                        Ray refraRay(P - epsi*N2, refraDir);
+                        Ray refraRay(P - epsi * N2, refraDir);
                         return getColor(refraRay, rebond, false); // Enlever +1 dans rebond ?
                     }
-                    else{
+                    else{ // Not mirror, neither transparent
+
                         // Vector PL = (L - P);
                         // double norm = sqrt(PL.sqrNorm()); 
                         
@@ -303,10 +371,14 @@ public:
                         Vector PL = (L - P);
                         PL = PL.get_normalized();
                         Vector w = random_cos(-PL);
-                        Vector xprim = w * dynamic_cast<Sphere*>(objects[0])->R + dynamic_cast<Sphere*>(objects[0])->O;
+
+                        double radius = dynamic_cast<Sphere*>(objects[0])->R;
+                        Vector origin = dynamic_cast<Sphere*>(objects[0])->O;
+
+                        Vector xprim = w * radius + origin;
                         Vector Pxprime = xprim - P;
                         double d = sqrt(Pxprime.sqrNorm());
-                        Pxprime = Pxprime/d;
+                        Pxprime = Pxprime / d;
 
                         Vector shadowP, shadowN, shadowAlbedo;
                         double shadowt;
@@ -317,21 +389,19 @@ public:
                         
                         bool shadowInter = intersect(shadowRay, shadowP, shadowN, shadowAlbedo, shadowMirror, shadowTransp, shadowt, shadowid);
 
-                        if(shadowInter && shadowt < d - 3*epsi){ // Might change to 3-4*epsi
+                        if(shadowInter && shadowt < d - 3*epsi){ 
                             p_color = Vector(0.,0.,0.);
                         } 
                         else{
-                            double SR = sqr(dynamic_cast<Sphere*>(objects[0])->R);
-                            double proba = std::max(0.,dot(-PL,w)) / (M_PI * SR * SR);
+                            double proba = std::max(0.,dot(-PL,w)) / (M_PI * radius * radius);
                             double J = std::max(0.,dot(w, -Pxprime) / (d*d));
-                            p_color =  I / (4 * M_PI * SR * SR) * albedo  * std::max(0., dot(N, Pxprime)) * J / proba; 
+                            p_color =  I / (4 * M_PI * M_PI * sqr(radius)) * (albedo / M_PI) * std::max(0., dot(N, Pxprime)) * J / proba; 
                         }
 
                         // Eclairage indirect
                         Vector dir_ir = random_cos(N); // Reflected Ray Direction
-                        Ray irRay(P + epsi * N, dir_ir.get_normalized()); // normalize ?
-                        p_color += albedo / M_PI * getColor(irRay, rebond + 1, true); //  /M_PI ?
-
+                        Ray irRay(P + epsi * N, dir_ir.get_normalized()); 
+                        p_color = p_color + albedo / M_PI * getColor(irRay, rebond + 1, true); 
                     }     
                 }  
             }
@@ -344,6 +414,12 @@ public:
     double I;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////      Triangle Mesh       //////////////////////////////////
+//////////////////////////////     (Object inherit)     //////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
 
 class TriangleIndices {
 public:
@@ -355,16 +431,11 @@ public:
 	int group;       // face group
 };
 
-class Noeud {
-public:
-        Noeud *fg, *fd;
-        Boundingbox b;
-        int start, end;
-};
+
 
 class TriangleMesh : public Object {
 public:
-  ~TriangleMesh() {}
+    ~TriangleMesh() {}
 	TriangleMesh(const Vector& albedo, bool mirror = false, bool transp = false) {
         this->albedo = albedo;
         isMirror = mirror;
@@ -373,6 +444,7 @@ public:
     };
 
     Boundingbox buildBB(int start, int end){// triangle indexes
+        Boundingbox bb;
         bool inf = 1E9;
         bb.mini = Vector(inf,inf,inf);
         bb.maxi = Vector(-inf,-inf,-inf);
@@ -387,9 +459,10 @@ public:
                 bb.maxi[j] = std::max(bb.maxi[j], vertices[indices[i].vtxk][j]); 
             }            
         }
+        return bb;
     }
 
-void buildBVH(Noeud* n, int start, int end){
+    void buildBVH(Noeud* n, int start, int end){
        
         n->start = start;
         n->end = end;
@@ -397,11 +470,11 @@ void buildBVH(Noeud* n, int start, int end){
         Vector diag = n->b.maxi - n->b.mini;
 
         int d;
-        if (diag[0]>=diag[1] && diag[0]>=diag[2]){
+        if (diag[0] >= diag[1] && diag[0] >= diag[2]){
             d = 0;
         }
         else{
-            if (diag[1]>=diag[0] && diag[1]>=diag[2]){
+            if (diag[1] >= diag[0] && diag[1] >= diag[2]){
                 d = 1;
             }
             else{
@@ -410,8 +483,8 @@ void buildBVH(Noeud* n, int start, int end){
         }
 
         double mid = (n->b.mini[d] + n->b.maxi[d]) / 2;
-        int id_pivot = n-> start;
 
+        int id_pivot = n-> start;
         for (int i = n->start; i < n->end; i++){
             double mid_tri = (vertices[indices[i].vtxi][d] + vertices[indices[i].vtxj][d] + vertices[indices[i].vtxk][d]) / 3;
             if(mid_tri < mid){
@@ -604,7 +677,8 @@ void buildBVH(Noeud* n, int start, int end){
 
 	}
 
-    bool intersect(const Ray& r, Vector& P, Vector& normale, double &t){ 
+    bool intersect(const Ray& r, Vector& P, Vector& normale, double &t, Vector &color){ 
+
         if(!BVH->b.intersect(r)) return false;
 
         t = 1E10; // double t
@@ -650,6 +724,22 @@ void buildBVH(Noeud* n, int start, int end){
                             normale = alpha*normals[indices[i].ni] + beta*normals[indices[i].nj] + gamma*normals[indices[i].nk];
                             normale = normale.get_normalized();
                             P = r.C  + r.u *t;
+
+                            Vector UV = alpha*uvs[indices[i].uvi] + beta*uvs[indices[i].uvj] + gamma*uvs[indices[i].uvk];
+                            int H = Htex[indices[i].group];
+                            int W = Wtex[indices[i].group];
+                            UV = UV * Vector(W,H,0);
+                            int uvx = UV[0] + 0.5;
+                            int uvy = UV[1] + 0.5; 
+                            uvx = uvx % W;
+                            uvy = uvy % H;
+
+                            if (uvx < 0) uvx += W;
+                            if (uvy < 0) uvy += H;
+                            uvy = H - uvy - 1;
+                            color = Vector(textures[indices[i].group][(uvy*W + uvx)*3] / 255.,
+                                textures[indices[i].group][(uvy*W + uvx)*3 + 1] / 255.,
+                                textures[indices[i].group][(uvy*W + uvx)*3 + 2] / 255.);
                         }
                     }
                 }
@@ -660,11 +750,23 @@ void buildBVH(Noeud* n, int start, int end){
         return is_inter;        
     }
 
+    void loadTexture(const char* filename){
+        int W, H, C;
+        unsigned char* texture = stbi_load(filename, &W, &H, &C, 3);
+
+        Wtex.push_back(W);
+        Htex.push_back(H);
+        textures.push_back(texture);
+    }
+
 	std::vector<TriangleIndices> indices;
 	std::vector<Vector> vertices;
 	std::vector<Vector> normals;
 	std::vector<Vector> uvs;
 	std::vector<Vector> vertexcolors;
+
+    std::vector<unsigned char*>textures;
+    std::vector<int> Wtex,Htex;
     Boundingbox bb; 
 
     Noeud* BVH;
@@ -673,53 +775,73 @@ void buildBVH(Noeud* n, int start, int end){
 
 
 int main() {
-    // Define image size & nb of Rays
+
+    clock_t t_start = clock();
+    //////////////////////////////////////////////
+    //////////     Image parameters     //////////
+    ////////////////////////////////////////////// 
+    
     int W = 128; // 512
     int H = 128; // 512
     int nb_rays = 2; // 100
+    double capSize = 0.00001;
+    double focale = 55;
 
-    // Create Scene and light. Setup camera position
-    Vector C(0,0,55);
+
+    //////////////////////////////////////////////
+    //////////     Camera parameters     /////////
+    ////////////////////////////////////////////// 
+
+    // Position
+    float x_cam = -20;
+    float y_cam = 0;
+    float z_cam = 55;
+    
+    // Direction (rad)
+    float theta_cam = -35 * (M_PI / 180);
+    float phi_cam = 20 * (M_PI / 180); 
+    float psi_cam = 0 * (M_PI / 180); 
+
+    // FOV (rad)
+    double alpha_cam = -60 * (M_PI / 180);
+
+    // Camera Vector
+    Vector C(x_cam,y_cam,z_cam); 
+
+
+    //////////////////////////////////////////////
+    ////////     Scene and light setup     ///////
+    ////////////////////////////////////////////// 
+    
+    ////////////// Initialize Scene //////////////
     Scene scene;
-    scene.I = 5E9;
-    scene.L = Vector(-10, 20, 40);
-    double angle = 60;
-    double alpha = angle * M_PI / 180;
 
-    // Add elemnts to the scene (Walls approximated with spheres)
+    /////////////// Light //////////////
+    scene.I = 5E9; // Intensity
+    scene.L = Vector(-10, 20, 40); // Position
+
     Sphere Lumiere(scene.L, 5, Vector(1.,1.,1.)); // White
+    scene.objects.push_back(&Lumiere); 
+
+    //////////////// Add elements to the scene (Walls approximated with spheres) //////////////
+
+    // Transparency and mirror Sphere parameters are false by default
+
     //Sphere S(Vector(0,0,0),10,Vector(1.,1.,1.),false,false); // White
-    Sphere S1(Vector(0, 0, 0), 10, Vector(1, 1, 1), false, false);// White
-    Sphere S2(Vector(-10, 0, -20), 10, Vector(1, 1, 1), false, false);// White
-    Sphere S3(Vector(10, 0, 20), 10, Vector(1, 1, 1), false, false);// White
+    Sphere S1(Vector(0, 0, 0), 10, Vector(1, 1, 1));// White
+    Sphere S2(Vector(-10, 0, -20), 10, Vector(1, 1, 1));// White
+    Sphere S3(Vector(10, 0, 20), 10, Vector(1, 1, 1));// White
     Sphere SmurBot(Vector(0, -1000, 0),990,Vector(0., 0., 1.)); // Blue
     Sphere SmurTop(Vector(0, 1000, 0),940,Vector(1., 0., 0.)); // Red
     Sphere SmurLeft(Vector(-1000, 0 ,0),960,Vector(1., 0.5, 0.5)); // Pale Red
     Sphere SmurRight(Vector(1000, 0, 0),960,Vector(0.5, 1., 0.5));// Green
     Sphere SmurBack(Vector(0, 0, -1000),940,Vector(0.2, 1., 1.));// Cyan
     Sphere SmurFront(Vector(0, 0, 1000),940,Vector(1., 1., 0.5)); // Yellow
-    TriangleMesh m(Vector(1.,1.,1.));
 
-    m.readOBJ("Images/Dog/13463_Australian_Cattle_Dog_v3.obj");
-    for(int i=0; i < m.vertices.size(); i++){
-        std::swap(m.vertices[i][1], m.vertices[i][2]);
-        m.vertices[i][2] = -m.vertices[i][2];
-        m.vertices[i][2] += 10;
-        m.vertices[i][1] -= 10;
-        
-    }
-    for(int i=0; i < m.normals.size(); i++){
-        std::swap(m.normals[i][1], m.normals[i][2]);
-    }
-    //m.buildBB(); // complete ?
-    m.buildBVH(m.BVH, 0, m.indices.size()); 
-
-    scene.objects.push_back(&Lumiere); 
     //scene.objects.push_back(S);
-    // scene.objects.push_back(&S1);
-    // scene.objects.push_back(&S2);
-    // scene.objects.push_back(&S3);
-    scene.objects.push_back(&m);
+    scene.objects.push_back(&S1);
+    scene.objects.push_back(&S2);
+    scene.objects.push_back(&S3);
     scene.objects.push_back(&SmurLeft);
     scene.objects.push_back(&SmurRight);
     scene.objects.push_back(&SmurBack);
@@ -727,9 +849,45 @@ int main() {
     scene.objects.push_back(&SmurTop);
     scene.objects.push_back(&SmurBot);
 
-    // Depth of field
-    double capSize = 0.00001;
-    double focale = 55;
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////// Model & Texture ///////////////
+     
+    TriangleMesh m(Vector(1.,1.,1.));
+    m.readOBJ("13463_Australian_Cattle_Dog_v3.obj");
+    m.loadTexture("Australian_cattle_Dog_dif.jpg");
+
+    // Move 3D model
+    for(int i=0; i < m.vertices.size(); i++){
+        std::swap(m.vertices[i][1], m.vertices[i][2]);
+        m.vertices[i][2] = - m.vertices[i][2];
+        m.vertices[i][1] -= 10;
+        m.vertices[i][2] += 10;
+        
+    }
+    for(int i=0; i < m.normals.size(); i++){
+        std::swap(m.normals[i][1], m.normals[i][2]);
+        m.normals[i][2] = -m.normals[i][2];
+    }
+    m.buildBVH(m.BVH, 0, m.indices.size()); 
+
+    scene.objects.push_back(&m);
+
+    
+    //////////////////////////////////////////////
+    ////////////     Vue Direction     ///////////
+    //////////////////////////////////////////////
+
+    // Define base direction
+    Vector right(1, 0, 0); 
+    Vector up(0, 1, 0);
+    
+    Vector viewDir = cross(up,right); 
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // Timer init
+    clock_t t_atm;
+    clock_t t_left;
 
     std::vector<unsigned char> image(W * H * 3, 0);
     #pragma omp parallel for schedule(dynamic,1) 
@@ -750,8 +908,9 @@ int main() {
                 double dx2 = capSize * cos(2 * M_PI * u1) * sqrt(-2 * log(u2));
                 double dy2 = capSize * sin(2 * M_PI * u1) * sqrt(-2 * log(u2));
 
-                Vector dir(j - W/2 + dx +0.5, i - H/2 + dy + 0.5, -W / (2. * tan(alpha/2)));  
+                Vector dir(j - W/2 + dx +0.5, i - H/2 + dy + 0.5, -W / (2. * tan(alpha_cam/2)));  
                 dir = dir.get_normalized();
+                dir = dir[0] * right + dir[1] * up + dir[2] * viewDir;
 
                 Vector target = C + focale * dir;
                 Vector C_prime = C + Vector(dx2, dy2, 0);
@@ -762,13 +921,22 @@ int main() {
                 p_color += scene.getColor(r, 0, false);
             };
             p_color = p_color / nb_rays;
-            // Till here
+
             image[((H - i - 1) * W + j) * 3 + 0] = std::min(255., std::pow(p_color[0],0.45));
             image[((H - i - 1) * W + j) * 3 + 1] = std::min(255., std::pow(p_color[1],0.45));
             image[((H - i - 1) * W + j) * 3 + 2] = std::min(255., std::pow(p_color[2],0.45));
         }
+        if ((i+1) % 50 == 0) {
+            // Time left estimation based on time needed to do previous iterations (naive version)
+            t_atm = (clock() - t_start) / 1000.;
+            std::cout << "Total Time : " << (int)t_atm / 60 << "m " << t_atm % 60 << "s" << std::endl;
+            t_left = ((H - i - 1) / (i + 1))* t_atm ;
+            std::cout << "Time left (approx) : " << (int)t_left / 60 << "m " << t_left % 60 << "s" << std::endl;
+        }
     }
-    stbi_write_png("Images/image_Mesh2.png", W, H, 3, &image[0], 0);
+
+    // Write Image
+    stbi_write_png("Images/image_DOGooO.png", W, H, 3, &image[0], 0);
  
     return 0;
 }
