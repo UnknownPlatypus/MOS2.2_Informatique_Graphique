@@ -1,6 +1,6 @@
 # MOS2.2_Informatique_Graphique
 
-Projet de Ray tracing réalisé pendant le cours MOS 2.2 d'Infromatique Graphique à l'Ecole Centrale de Lyon
+Projet de Ray tracing réalisé pendant le cours MOS 2.2 d'Informatique Graphique à l'Ecole Centrale de Lyon
 
 Enseignant : [Nicolas Bonnel](https://perso.liris.cnrs.fr/nicolas.bonneel/teaching.html)
 
