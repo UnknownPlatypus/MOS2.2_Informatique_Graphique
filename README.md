@@ -132,6 +132,8 @@ Voici le résultat obtenu pour le modèle de chien intégré à notre scène :
 
 On améliore les performances en utilisant le principe de bounding box hierarchy. On cherche ici à itérer sur les boites englobantes de notre modèle de façon récursive jusqu'à obtenir de boites contenant seulement quelques triangles. On réduit à nouveau le nombre d'intersections avec le maillage à calculer ce qui réduit le temps de calcul général.
 
+Je pense ici que mon implémentation est partiellement incorrect car je n'ai pas de gain de performance suffisants.
+
 ### Mouvement de Camera
 
 La dernière implémentation vise à contrôler la position de la caméra.
