@@ -6,8 +6,7 @@ ELCa11*
 /cours
 
 # Ignore images
-Images/*
-*.png
+Images_trash/*
 
 # Builds
 *.exe

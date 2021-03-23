@@ -212,7 +212,7 @@ public:
 
 class Boundingbox{
 public:
-    bool intersect(const Ray& r){
+    bool intersect(const Ray& r, double &t){ // , double &t
         double tx1 = (mini[0] - r.C[0]) / r.u[0];
         double tx2 = (maxi[0] - r.C[0]) / r.u[0];
         double txmin = std::min(tx1, tx2);
@@ -232,6 +232,8 @@ public:
         double tMin = std::max(txmin,std::min(tymin,tzmin));
 
         if (tMax <0) return false;
+
+        t = tMin;
         return tMax > tMin;
 
     }
@@ -438,12 +440,12 @@ public:
     ~TriangleMesh() {}
 	TriangleMesh(const Vector& albedo, bool mirror = false, bool transp = false) {
         this->albedo = albedo;
-        isMirror = mirror;
-        transp = transp;
+        this->isMirror = mirror;
+        this->isTransparent = transp;
         BVH = new Noeud;
     };
 
-    Boundingbox buildBB(int start, int end){// triangle indexes
+    Boundingbox buildBB(int start, int end){ // Build a box between 2 edges (start & end)
         Boundingbox bb;
         bool inf = 1E9;
         bb.mini = Vector(inf,inf,inf);
@@ -462,10 +464,11 @@ public:
         return bb;
     }
 
-    void buildBVH(Noeud* n, int start, int end){
+    void buildBVH(Noeud* n, int start, int end){ // Build a BVH between 2 edges (start & end)
        
         n->start = start;
         n->end = end;
+
         n->b = buildBB(n->start, n->end);
         Vector diag = n->b.maxi - n->b.mini;
 
@@ -483,8 +486,8 @@ public:
         }
 
         double mid = (n->b.mini[d] + n->b.maxi[d]) / 2;
+        int id_pivot = n->start;
 
-        int id_pivot = n-> start;
         for (int i = n->start; i < n->end; i++){
             double mid_tri = (vertices[indices[i].vtxi][d] + vertices[indices[i].vtxj][d] + vertices[indices[i].vtxk][d]) / 3;
             if(mid_tri < mid){
@@ -493,14 +496,14 @@ public:
             }
         }
 
-        n->fg = NULL;
-        n->fd = NULL;
+        n->fg = nullptr;
+        n->fd = nullptr;
         if(id_pivot == start || id_pivot == end || (end-start < 5)) return;
 
         n->fg = new Noeud;
         n->fd = new Noeud;
         buildBVH(n->fg, n->start, id_pivot);
-        buildBVH(n->fd, id_pivot,n->end);
+        buildBVH(n->fd, id_pivot, n->end);
     }
 	
 	void readOBJ(const char* obj) {
@@ -679,7 +682,8 @@ public:
 
     bool intersect(const Ray& r, Vector& P, Vector& normale, double &t, Vector &color){ 
 
-        if(!BVH->b.intersect(r)) return false;
+        double localt;
+        if (!BVH->b.intersect(r , localt)) return false;
 
         t = 1E10; // double t
         bool is_inter = false;
@@ -690,15 +694,36 @@ public:
         while(!l.empty()){
             Noeud* c = l.front();
             l.pop_front();
-            if(c->fg){
-                if(!c->fg->b.intersect(r)){
-                    l.push_front(c->fg);
+
+            if (c->fg) {
+            
+                double localtfg;
+                double localtfd; 
+                bool interfg = c->fg->b.intersect(r, localtfg);
+                bool interfd = c->fd->b.intersect(r, localtfd);
+
+                if (interfg && interfd && localtfd < t && localtfg < t) {
+                    if (localtfg < localtfd){
+                        l.push_front(c->fd);
+                        l.push_front(c->fg);
+                    }
+                    else{
+                        l.push_front(c->fg);
+                        l.push_front(c->fd);
+                    }
                 }
-                if(!c->fd->b.intersect(r)){
-                    l.push_front(c->fd);
+                else{
+                    if(interfg && localtfg < t){
+                        l.push_front(c->fg);
+                    }
+                    if(interfd && localtfd < t){
+                        l.push_front(c->fd);
+                    }
                 }
             }
+
             else{
+
                 for(int i = c->start; i < c->end; i++){
                     const Vector &A = vertices[indices[i].vtxi]; // First vertice
                     const Vector &B = vertices[indices[i].vtxj]; // Second vertice
@@ -706,29 +731,30 @@ public:
 
                     Vector e1 = B - A;
                     Vector e2 = C - A;
-                    Vector N = cross(e1,e2);
+                    Vector N = cross(e1, e2);
                     Vector AO = r.C - A;
                     Vector AOu = cross(AO, r.u);
+
                     double invUN = 1. / dot(r.u, N);
-
-                    double beta = -dot(e2,AOu) * invUN;
-                    double gamma = dot(e1,AOu) * invUN;
+                    double beta = -dot(e2, AOu) * invUN;
+                    double gamma = dot(e1, AOu) * invUN;
                     double alpha = 1 - beta - gamma;
-                    double localt = -dot(AO,N) * invUN;
+                    double localt = -dot(AO, N) * invUN;
 
-                    if(beta >= 0 && gamma >= 0 && beta <=1 && gamma <= 1 && alpha >= 0 && localt > 0){ // intesection
+                    if(beta >= 0 && gamma >= 0 && beta <=1 && gamma <= 1 && alpha >= 0 && localt > 0){ // Intesection
+
                         is_inter = true;
                         if(localt < t){
                             t = localt;
-                            // normale = N.get_normalized(); // Modifier pour stocker index utile et calculer a la fin seulement
-                            normale = alpha*normals[indices[i].ni] + beta*normals[indices[i].nj] + gamma*normals[indices[i].nk];
+                            normale = alpha * normals[indices[i].ni] + beta * normals[indices[i].nj] + gamma * normals[indices[i].nk];
                             normale = normale.get_normalized();
                             P = r.C  + r.u *t;
 
-                            Vector UV = alpha*uvs[indices[i].uvi] + beta*uvs[indices[i].uvj] + gamma*uvs[indices[i].uvk];
+                            Vector UV = alpha * uvs[indices[i].uvi] + beta * uvs[indices[i].uvj] + gamma * uvs[indices[i].uvk];
                             int H = Htex[indices[i].group];
                             int W = Wtex[indices[i].group];
-                            UV = UV * Vector(W,H,0);
+                            UV = UV * Vector(W, H, 0);
+
                             int uvx = UV[0] + 0.5;
                             int uvy = UV[1] + 0.5; 
                             uvx = uvx % W;
@@ -736,16 +762,18 @@ public:
 
                             if (uvx < 0) uvx += W;
                             if (uvy < 0) uvy += H;
-                            uvy = H - uvy - 1;
-                            color = Vector(textures[indices[i].group][(uvy*W + uvx)*3] / 255.,
-                                textures[indices[i].group][(uvy*W + uvx)*3 + 1] / 255.,
-                                textures[indices[i].group][(uvy*W + uvx)*3 + 2] / 255.);
+
+                            uvy = H - uvy - 1; // Texture origin si inverted (bottom)
+
+
+                            color = Vector(
+                                textures[indices[i].group][(uvy*W + uvx) * 3] / 255.,
+                                textures[indices[i].group][(uvy*W + uvx) * 3 + 1] / 255.,
+                                textures[indices[i].group][(uvy*W + uvx) * 3 + 2] / 255.);
                         }
                     }
                 }
-
-            }
-            
+            } 
         }       
         return is_inter;        
     }
@@ -772,18 +800,23 @@ public:
     Noeud* BVH;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////            Main          //////////////////////////////////
+//////////////////////////////                          //////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
 
 
 int main() {
-
     clock_t t_start = clock();
+
     //////////////////////////////////////////////
     //////////     Image parameters     //////////
     ////////////////////////////////////////////// 
     
-    int W = 128; // 512
-    int H = 128; // 512
-    int nb_rays = 2; // 100
+    int W = 512; // 512
+    int H = 512; // 512
+    int nb_rays = 100; // 100
     double capSize = 0.00001;
     double focale = 55;
 
@@ -793,14 +826,13 @@ int main() {
     ////////////////////////////////////////////// 
 
     // Position
-    float x_cam = -20;
-    float y_cam = 0;
+    float x_cam = 20;
+    float y_cam = 20;
     float z_cam = 55;
     
     // Direction (rad)
-    float theta_cam = -35 * (M_PI / 180);
-    float phi_cam = 20 * (M_PI / 180); 
-    float psi_cam = 0 * (M_PI / 180); 
+    float theta_cam = -30 * (M_PI / 180);
+    float phi_cam = -30 * (M_PI / 180); 
 
     // FOV (rad)
     double alpha_cam = -60 * (M_PI / 180);
@@ -817,7 +849,7 @@ int main() {
     Scene scene;
 
     /////////////// Light //////////////
-    scene.I = 5E9; // Intensity
+    scene.I = 9E9; // Intensity
     scene.L = Vector(-10, 20, 40); // Position
 
     Sphere Lumiere(scene.L, 5, Vector(1.,1.,1.)); // White
@@ -827,7 +859,7 @@ int main() {
 
     // Transparency and mirror Sphere parameters are false by default
 
-    //Sphere S(Vector(0,0,0),10,Vector(1.,1.,1.),false,false); // White
+    // Sphere S(Vector(0,0,0),10,Vector(1.,1.,1.),false,false); // White
     Sphere S1(Vector(0, 0, 0), 10, Vector(1, 1, 1));// White
     Sphere S2(Vector(-10, 0, -20), 10, Vector(1, 1, 1));// White
     Sphere S3(Vector(10, 0, 20), 10, Vector(1, 1, 1));// White
@@ -852,25 +884,25 @@ int main() {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     /////////////// Model & Texture ///////////////
      
-    TriangleMesh m(Vector(1.,1.,1.));
-    m.readOBJ("13463_Australian_Cattle_Dog_v3.obj");
-    m.loadTexture("Australian_cattle_Dog_dif.jpg");
+    // TriangleMesh m(Vector(1.,1.,1.));
+    // m.readOBJ("13463_Australian_Cattle_Dog_v3.obj");
+    // m.loadTexture("Australian_cattle_Dog_dif.jpg");
 
-    // Move 3D model
-    for(int i=0; i < m.vertices.size(); i++){
-        std::swap(m.vertices[i][1], m.vertices[i][2]);
-        m.vertices[i][2] = - m.vertices[i][2];
-        m.vertices[i][1] -= 10;
-        m.vertices[i][2] += 10;
+    // // Move 3D model
+    // for(int i=0; i < m.vertices.size(); i++){
+    //     std::swap(m.vertices[i][1], m.vertices[i][2]);
+    //     m.vertices[i][2] = - m.vertices[i][2];
+    //     m.vertices[i][1] -= 10;
+    //     m.vertices[i][2] += 10;
         
-    }
-    for(int i=0; i < m.normals.size(); i++){
-        std::swap(m.normals[i][1], m.normals[i][2]);
-        m.normals[i][2] = -m.normals[i][2];
-    }
-    m.buildBVH(m.BVH, 0, m.indices.size()); 
+    // }
+    // for(int i=0; i < m.normals.size(); i++){
+    //     std::swap(m.normals[i][1], m.normals[i][2]);
+    //     m.normals[i][2] = -m.normals[i][2];
+    // }
+    // m.buildBVH(m.BVH, 0, m.indices.size()); 
 
-    scene.objects.push_back(&m);
+    // scene.objects.push_back(&m);
 
     
     //////////////////////////////////////////////
@@ -881,6 +913,10 @@ int main() {
     Vector right(1, 0, 0); 
     Vector up(0, 1, 0);
     
+    // Rotate angle theta cam around right
+    up = up * cos(theta_cam) + cross(right, up) * sin(theta_cam) + right * dot(right, up) * (1 - cos(theta_cam));
+    // right = right * cos(phi_cam) + cross(up, right) * sin(phi_cam) + up * dot(up, right) * (1 - cos(phi_cam));
+
     Vector viewDir = cross(up,right); 
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -936,7 +972,7 @@ int main() {
     }
 
     // Write Image
-    stbi_write_png("Images/image_DOGooO.png", W, H, 3, &image[0], 0);
+    stbi_write_png("Images/rotate_x.png", W, H, 3, &image[0], 0);
  
     return 0;
 }
