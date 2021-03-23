@@ -11,3 +11,5 @@ Images_trash/*
 # Builds
 *.exe
 
+# Test Monte Carlo
+monteCarlo_meth2.cpp

@@ -885,8 +885,8 @@ int main() {
     /////////////// Model & Texture ///////////////
      
     // TriangleMesh m(Vector(1.,1.,1.));
-    // m.readOBJ("13463_Australian_Cattle_Dog_v3.obj");
-    // m.loadTexture("Australian_cattle_Dog_dif.jpg");
+    // m.readOBJ("model/13463_Australian_Cattle_Dog_v3.obj");
+    // m.loadTexture("model/Australian_cattle_Dog_dif.jpg");
 
     // // Move 3D model
     // for(int i=0; i < m.vertices.size(); i++){
@@ -972,7 +972,7 @@ int main() {
     }
 
     // Write Image
-    stbi_write_png("Images/rotate_x.png", W, H, 3, &image[0], 0);
+    stbi_write_png("Images/test.png", W, H, 3, &image[0], 0);
  
     return 0;
 }
