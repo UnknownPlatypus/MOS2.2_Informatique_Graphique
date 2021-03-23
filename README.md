@@ -47,7 +47,7 @@ On commence par définir des classes de bases que l'on utilisera ensuite.
 On commence par définir une fonction déterminant la présence d'une intersection rayon-Sphère.
 On envoie un rayon par pixel de l'image et on détermine pour chaque sphère s'il y a une intersection. En cas d'intersection, on renvoie l'albédo de la dite Sphère.
 
-Pour une Sphère unique centrée dans notre image on obtient le résultat suivant, le drapeau du Japon en jouant un peu sur les couleurs de la sphère et par défaut :
+Pour une Sphère unique rouge centrée dans notre image on obtient le résultat suivant, le drapeau du Japon en jouant un peu sur les couleurs :
 
 ![](Images/inter_Ray_Sphere.png)
 
@@ -81,9 +81,9 @@ Pour améliorer le rendu, on va considérer l'éclairage indirect (réflections 
 On utilise donc plusieurs rayons rebondissant de manière aléatoire et on moyenne les couleurs obtenues.
 En utilisant, 100 ou 500 rayons, on obtient des résultats plus lisse mais aussi beaucoup plus long à générer. Le temps de calcul augmente à peu près linéairement en fonction du nombre de rayons donc le résultat peut être très long à obtenir.
 
-Voici le résultat obtenu pour 1, 2 et 100 rayons sur une scène contenant une sphère transparente :
+Voici le résultat obtenu pour 1, 50 et 100 rayons sur une scène contenant une sphère transparente :
 ![](Images/image_1Ray.png)
-![](Images/image_2Ray.png)
+![](Images/image_50Ray.png)
 ![](Images/image_100Ray.png)
 
 ### Anti-aliasing
@@ -111,6 +111,7 @@ On souhaite se rapprocher du rendu d'un appareil photo qui ne fait le focus que 
 On réalise cela en ajoutant une focale à notre caméra qui dévie les rayons pour obtenir un focus sur un certains plan de l'image.
 
 On obtient un résultat très convaincant qui pourrait encore s'améliorer en multipliant le nombre de rayons, mais le temps de calcul devient trop important.
+
 ![](Images/prof_champ.png)
 
 ### Maillage 
@@ -140,14 +141,22 @@ On pourrait ainsi réaliser une animation en générant de multiple photos avec 
 Cependant, le temps de calcul sera très conséquent et j'ai donc abandonné cette idée et simplement réaliser quelques mouvements de caméra.
 
 Rotation selon x: 
+
 ![](Images/rotate_x.png)
+
 Rotation selon z:
+
 ![](Images/rotate_z.png)
 
 ### Conclusion
 
-J'ai trouvé ce cours globalement intéressant mais difficile à suivre pour plusieurs raisons. Tout d'abord, le planning de 3A est assez chargé et le temps nécessaire pour obtenir des résultats vraiment très sympa est trop long. Ensuite, je trouve qu'il faudrait insister plus fortement en amont sur le niveau de C++ attendu, j'avais personnellement très peu utilisé ce langage auparavant donc le cumul de l'apprentissage du langage et du contenu technique ont rendu le projet difficile. Enfin, vous laissiez le choix sur l'IDE ou sur le langage et je pense vraiment que vous devriez fortement recommander Visual Studio et C++ (ce que vous utilisez). En effet, l'étudiant qui a fait le projet en java a passé un temps très important à juste adapter des routines ou codes dont il ne disposait pas (lecture de fichier OBJ par exemple) et c'est assez dommage car ce n'est pas du tout la partie intéressante du cours. Pour ma part, j'ai utilisé Visual Studio Code, car j'ai l'habitude de cet IDE, mais il s'avère qu'il est très peu adapté à C++, ça n'a pas posé de problème au début, mais dès lors que les maillages sont arrivées, j'ai eu de nombreuses difficultés avec Openmp et le débogage qui est difficilement réalisable sur VScode.
+J'ai trouvé ce cours globalement intéressant mais difficile à suivre pour plusieurs raisons. 
+Tout d'abord, le planning de 3A est assez chargé et le temps nécessaire pour obtenir des résultats vraiment très sympa est assez long. 
+Ensuite, je trouve qu'il faudrait insister plus fortement en amont sur le niveau de C++ attendu, j'avais personnellement très peu utilisé ce langage auparavant donc le cumul de l'apprentissage du langage et du contenu technique ont rendu le projet difficile. 
+Enfin, vous laissiez le choix sur l'IDE ou sur le langage et je pense vraiment que vous devriez fortement recommander Visual Studio et C++ (ce que vous utilisez). En effet, l'étudiant qui a fait le projet en java a passé un temps très important à juste adapter des routines ou codes dont il ne disposait pas (lecture de fichier OBJ par exemple) et c'est assez dommage car ce n'est pas du tout la partie intéressante du cours. 
+Pour ma part, j'ai utilisé Visual Studio Code, car j'ai l'habitude de cet IDE, mais il s'avère qu'il est très peu adapté à C++, ça n'a pas posé de problème au début, mais dès lors que les maillages sont arrivées, j'ai eu de nombreuses difficultés avec Openmp et le débogage qui est difficilement réalisable sur VScode.
 
 Enfin, l'idée d'utiliser un repository Github est très pertinente pour le suivi des versions et je pense que vous devriez insister encore plus sur ce point. (initialisation du repository dès la première séance, ..)
 
-Pour conclure, je trouve que ce cours aurait pu être très intéressant et stimulant mais finalement j'ai trop été dérangé par les problèmes techniques et je suis finalement un peu déçu du résultat obtenu par rapport au temps consacré. Je conseillerais volontiers ce cours à d'autres étudiants, mais en insistant très fortement sur l'IDE à utiliser, le langage à utiliser et le versioning Github. Cela permettra d'éviter la majorité des problèmes techniques qui font perdre du temps sur le cœur très intéressant du sujet.
+Pour conclure, je trouve que ce cours aurait pu être très intéressant et stimulant mais finalement j'ai trop été dérangé par les problèmes techniques et je suis finalement un peu déçu du résultat obtenu par rapport au temps consacré. 
+Je conseillerais volontiers ce cours à d'autres étudiants, mais en insistant très fortement sur l'IDE à utiliser, le langage à utiliser et le versioning Github. Cela permettra d'éviter la majorité des problèmes techniques qui font perdre du temps sur le cœur très intéressant du sujet.
